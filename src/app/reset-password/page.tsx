@@ -5,8 +5,8 @@ import { createClient } from '@supabase/supabase-js'
 
 // Initialize the Supabase client
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 )
 
 export default function ResetPassword() {
@@ -17,17 +17,19 @@ export default function ResetPassword() {
 
   useEffect(() => {
     // Get the hash fragment from the URL
-    const hash = window.location.hash
-    if (hash) {
-      const params = new URLSearchParams(hash.substring(1))
-      const access_token = params.get('access_token')
-      const refresh_token = params.get('refresh_token')
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash
+      if (hash) {
+        const params = new URLSearchParams(hash.substring(1))
+        const access_token = params.get('access_token')
+        const refresh_token = params.get('refresh_token')
 
-      if (access_token && refresh_token) {
-        supabase.auth.setSession({
-          access_token,
-          refresh_token,
-        })
+        if (access_token && refresh_token) {
+          supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          })
+        }
       }
     }
   }, [])
@@ -126,4 +128,3 @@ export default function ResetPassword() {
     </div>
   )
 }
-
