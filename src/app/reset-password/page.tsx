@@ -1,22 +1,34 @@
+'use client'
+
 import React, { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
-// Initialize Supabase client with HTTPS URLs only
+// Initialize the Supabase client
 const supabase = createClient(
-  'https://eyzofebyvefyzqrijpes.supabase.co', // Your Supabase project URL (always HTTPS)
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function PasswordReset() {
+export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
-    // Ensure we're on HTTPS
-    if (window.location.protocol !== 'https:') {
-      window.location.href = window.location.href.replace('http:', 'https:')
+    // Get the hash fragment from the URL
+    const hash = window.location.hash
+    if (hash) {
+      const params = new URLSearchParams(hash.substring(1))
+      const access_token = params.get('access_token')
+      const refresh_token = params.get('refresh_token')
+
+      if (access_token && refresh_token) {
+        supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        })
+      }
     }
   }, [])
 
@@ -34,10 +46,9 @@ export default function PasswordReset() {
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
       setMessage('Password updated successfully')
-      
-      // Redirect to HTTPS login page after success
+      // Redirect to your app's login page after successful password reset
       setTimeout(() => {
-        window.location.href = 'https://www.theprepperapp.com/login'
+        window.location.href = 'com.theprepperapp://login'
       }, 3000)
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An unexpected error occurred')
@@ -115,3 +126,4 @@ export default function PasswordReset() {
     </div>
   )
 }
+
