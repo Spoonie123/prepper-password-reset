@@ -40,20 +40,12 @@ function ResetPassword() {
           }
 
           // Set session with the access token
-          const { data, error: authError } = await supabaseClient.auth.getUser(access_token)
+          const { error: authError } = await supabaseClient.auth.getUser(access_token)
           if (authError) {
             throw authError
           }
 
           setDebugInfo(prev => `${prev}\nUser authenticated successfully`)
-
-
-          // Verify the session was set
-          //const { data: { session }, error: verifyError } = await supabaseClient.auth.getSession()
-          //if (verifyError || !session) {
-          //  throw new Error('Failed to verify session')
-          //}
-
           setDebugInfo(prev => `${prev}\nSession established successfully`)
         } else {
           throw new Error('No hash fragment in URL')
