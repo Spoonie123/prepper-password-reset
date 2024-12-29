@@ -30,13 +30,19 @@ function ResetPassword() {
         if (hash) {
           const params = new URLSearchParams(hash.substring(1))
           const access_token = params.get('access_token')
-          const refresh_token = params.get('refresh_token')
 
-          if (access_token && refresh_token) {
+          if (access_token) {
+            // Set session with just the access token
             await supabaseClient.auth.setSession({
               access_token,
-              refresh_token,
+              refresh_token: access_token // Use access token as refresh token
             })
+            
+            // Verify the session was set
+            const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession()
+            if (sessionError || !session) {
+              throw new Error('Failed to establish session')
+            }
           }
         }
 
@@ -44,37 +50,22 @@ function ResetPassword() {
       } catch (error) {
         console.error('Error initializing Supabase client:', error)
         setInitError(error instanceof Error ? error.message : 'Failed to initialize Supabase client')
+        setIsAuthReady(true) // Set auth ready even on error to show error state
       }
     }
 
     initializeSupabase()
   }, [])
 
-  if (initError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h2 className="text-2xl font-bold mb-4">Initialization Error</h2>
-          <p className="text-red-500">{initError}</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!supabase || !isAuthReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h2 className="text-2xl font-bold mb-4">Loading...</h2>
-        </div>
-      </div>
-    )
-  }
-
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setMessage('')
     setError('')
+
+    if (!supabase) {
+      setError('Supabase client not initialized')
+      return
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords don't match")
@@ -82,14 +73,22 @@ function ResetPassword() {
     }
 
     try {
+      // Verify session before attempting password update
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        throw new Error('No valid session found')
+      }
+
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
+
       setMessage('Password updated successfully')
       // Redirect to your app's login page after successful password reset
       setTimeout(() => {
         window.location.href = 'com.theprepperapp://login'
       }, 3000)
     } catch (error) {
+      console.error('Password reset error:', error)
       setError(error instanceof Error ? error.message : 'An unexpected error occurred')
     }
   }
@@ -117,7 +116,7 @@ function ResetPassword() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -134,7 +133,7 @@ function ResetPassword() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm"
                 />
               </div>
             </div>
