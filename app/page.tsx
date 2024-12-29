@@ -31,25 +31,22 @@ function ResetPassword() {
 
           if (access_token) {
             // Set session with just the access token
-            await supabaseClient.auth.setSession({
+            const { error } = await supabaseClient.auth.setSession({
               access_token,
-              refresh_token: access_token // Use access token as refresh token
+              refresh_token: null
             })
             
-            // Verify the session was set
-            const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession()
-            if (sessionError || !session) {
-              throw new Error('Failed to establish session')
+            if (error) {
+              throw error
             }
+            
+            console.log('Session set successfully')
           }
         }
 
-        // Removed setIsAuthReady(true)
-
       } catch (error) {
         console.error('Error initializing Supabase client:', error)
-        // Removed setInitError(error instanceof Error ? error.message : 'Failed to initialize Supabase client')
-        // Removed setIsAuthReady(true)
+        setError(error instanceof Error ? error.message : 'Failed to initialize Supabase client')
       }
     }
 
@@ -72,13 +69,8 @@ function ResetPassword() {
     }
 
     try {
-      // Verify session before attempting password update
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !session) {
-        throw new Error('No valid session found')
-      }
-
-      const { error } = await supabase.auth.updateUser({ password })
+      const { data, error } = await supabase.auth.updateUser({ password })
+      
       if (error) throw error
 
       setMessage('Password updated successfully')
