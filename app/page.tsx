@@ -1,14 +1,70 @@
 'use client'
 
-import React, { useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import React, { useState, useEffect } from 'react'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 export default function ResetPassword() {
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<string>('')
+
+  useEffect(() => {
+    const initializeSupabase = async () => {
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          throw new Error('Missing Supabase credentials')
+        }
+
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+        setSupabase(supabaseClient)
+
+        // Get the hash fragment from the URL
+        const hash = window.location.hash.substring(1)
+        const params = new URLSearchParams(hash)
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
+
+        setDebugInfo(`Access Token: ${accessToken ? 'Present' : 'Missing'}, Refresh Token: ${refreshToken ? 'Present' : 'Missing'}`)
+
+        if (accessToken && refreshToken) {
+          const { error } = await supabaseClient.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+
+          if (error) {
+            throw error
+          }
+
+          setDebugInfo(prev => `${prev}\nSession set successfully`)
+        } else {
+          setDebugInfo(prev => `${prev}\nNo tokens found in URL`)
+        }
+
+        // Verify the session
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        if (session) {
+          setDebugInfo(prev => `${prev}\nValid session found`)
+        } else {
+          setDebugInfo(prev => `${prev}\nNo valid session found`)
+        }
+
+      } catch (error) {
+        console.error('Initialization error:', error)
+        setError(error instanceof Error ? error.message : 'An unexpected error occurred during initialization')
+        setDebugInfo(prev => `${prev}\nError: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
+    }
+
+    initializeSupabase()
+  }, [])
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -17,18 +73,13 @@ export default function ResetPassword() {
     setIsLoading(true)
 
     try {
+      if (!supabase) {
+        throw new Error('Supabase client not initialized')
+      }
+
       if (password !== confirmPassword) {
         throw new Error("Passwords don't match")
       }
-
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error('Missing Supabase credentials')
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
@@ -59,6 +110,12 @@ export default function ResetPassword() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border-2 border-yellow-400">
+          {debugInfo && (
+            <div className="mb-4 p-4 bg-gray-100 rounded text-xs font-mono whitespace-pre-wrap">
+              {debugInfo}
+            </div>
+          )}
+
           <form className="space-y-6" onSubmit={handleResetPassword}>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
