@@ -26,36 +26,40 @@ function ResetPassword() {
 
         // Get the hash fragment from the URL
         const hash = window.location.hash
-        setDebugInfo(`URL Hash: ${hash}`) // Debug info
+        setDebugInfo(`URL Hash: ${hash}`)
 
         if (hash) {
           const params = new URLSearchParams(hash.substring(1))
           const access_token = params.get('access_token')
-          const type = params.get('type')
 
-          setDebugInfo(prev => `${prev}\nAccess Token: ${access_token}\nType: ${type}`) // Debug info
+          setDebugInfo(prev => `${prev}\nAccess Token: ${access_token}`)
 
-          if (!access_token) {
-            throw new Error('No access token provided in URL')
+          if (access_token) {
+            // Set session with the access token
+            const { data, error: sessionError } = await supabaseClient.auth.setSession({
+              access_token,
+              refresh_token: access_token
+            })
+
+            if (sessionError) {
+              throw sessionError
+            }
+
+            setDebugInfo(prev => `${prev}\nSession set successfully`)
+
+            // Verify the session was set
+            const { data: { session }, error: verifyError } = await supabaseClient.auth.getSession()
+            if (verifyError) {
+              throw verifyError
+            }
+            if (session) {
+              setDebugInfo(prev => `${prev}\nSession verified successfully`)
+            } else {
+              throw new Error('Session verification failed')
+            }
+          } else {
+            throw new Error('No access token found in URL')
           }
-
-          // Set session with the access token
-          const { data, error: sessionError } = await supabaseClient.auth.setSession({
-            access_token,
-            refresh_token: access_token
-          })
-
-          if (sessionError) {
-            throw sessionError
-          }
-
-          // Verify the session was set
-          const { data: { session }, error: verifyError } = await supabaseClient.auth.getSession()
-          if (verifyError || !session) {
-            throw new Error('Failed to verify session')
-          }
-
-          setDebugInfo(prev => `${prev}\nSession established successfully`)
         } else {
           throw new Error('No hash fragment in URL')
         }
@@ -75,6 +79,7 @@ function ResetPassword() {
     e.preventDefault()
     setMessage('')
     setError('')
+    setDebugInfo('')
 
     if (!supabase) {
       setError('Supabase client not initialized')
@@ -87,16 +92,22 @@ function ResetPassword() {
     }
 
     try {
-      // Verify session before attempting password update
+      setDebugInfo('Attempting to get session...')
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !session) {
-        throw new Error('No valid session found. Please try resetting your password again.')
+      if (sessionError) {
+        throw sessionError
       }
+      if (!session) {
+        throw new Error('No valid session found')
+      }
+      setDebugInfo(prev => `${prev}\nValid session found`)
 
+      setDebugInfo(prev => `${prev}\nAttempting to update password...`)
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
 
       setMessage('Password updated successfully')
+      setDebugInfo(prev => `${prev}\nPassword updated successfully`)
       // Redirect to your app's login page after successful password reset
       setTimeout(() => {
         window.location.href = 'com.theprepperapp://login'
@@ -104,11 +115,12 @@ function ResetPassword() {
     } catch (error) {
       console.error('Password reset error:', error)
       setError(error instanceof Error ? error.message : 'An unexpected error occurred')
+      setDebugInfo(prev => `${prev}\nError: ${error instanceof Error ? error.message : 'An unexpected error occurred'}`)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-200 flex flex-col justify-center py-12 sm:px-6 lg:px-8 border-2 border-yellow-400">
+    <div className="min-h-screen bg-gray-200 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Reset your password
@@ -116,7 +128,7 @@ function ResetPassword() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border-2 border-yellow-400">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {debugInfo && (
             <div className="mb-4 p-4 bg-gray-100 rounded text-xs font-mono whitespace-pre-wrap">
               {debugInfo}
@@ -136,7 +148,7 @@ function ResetPassword() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -153,7 +165,7 @@ function ResetPassword() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -161,7 +173,7 @@ function ResetPassword() {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 Reset Password
               </button>
