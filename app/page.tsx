@@ -9,6 +9,7 @@ function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [debugInfo, setDebugInfo] = useState<string>('')
 
   useEffect(() => {
     const initializeSupabase = async () => {
@@ -25,28 +26,45 @@ function ResetPassword() {
 
         // Get the hash fragment from the URL
         const hash = window.location.hash
+        setDebugInfo(`URL Hash: ${hash}`) // Debug info
+
         if (hash) {
           const params = new URLSearchParams(hash.substring(1))
           const access_token = params.get('access_token')
+          const type = params.get('type')
 
-          if (access_token) {
-            // Set session with just the access token
-            const { error } = await supabaseClient.auth.setSession({
-              access_token,
-              refresh_token: access_token // Use access_token as refresh_token instead of null
-            })
-            
-            if (error) {
-              throw error
-            }
-            
-            console.log('Session set successfully')
+          setDebugInfo(prev => `${prev}\nAccess Token: ${access_token}\nType: ${type}`) // Debug info
+
+          if (!access_token) {
+            throw new Error('No access token provided in URL')
           }
+
+          // Set session with the access token
+          const { data, error: sessionError } = await supabaseClient.auth.setSession({
+            access_token,
+            refresh_token: access_token
+          })
+
+          if (sessionError) {
+            throw sessionError
+          }
+
+          // Verify the session was set
+          const { data: { session }, error: verifyError } = await supabaseClient.auth.getSession()
+          if (verifyError || !session) {
+            throw new Error('Failed to verify session')
+          }
+
+          setDebugInfo(prev => `${prev}\nSession established successfully`)
+        } else {
+          throw new Error('No hash fragment in URL')
         }
 
       } catch (error) {
         console.error('Error initializing Supabase client:', error)
-        setError(error instanceof Error ? error.message : 'Failed to initialize Supabase client')
+        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize Supabase client'
+        setError(errorMessage)
+        setDebugInfo(prev => `${prev}\nError: ${errorMessage}`)
       }
     }
 
@@ -69,8 +87,13 @@ function ResetPassword() {
     }
 
     try {
-      const { data, error } = await supabase.auth.updateUser({ password })
-      
+      // Verify session before attempting password update
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        throw new Error('No valid session found. Please try resetting your password again.')
+      }
+
+      const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
 
       setMessage('Password updated successfully')
@@ -94,6 +117,12 @@ function ResetPassword() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border-2 border-yellow-400">
+          {debugInfo && (
+            <div className="mb-4 p-4 bg-gray-100 rounded text-xs font-mono whitespace-pre-wrap">
+              {debugInfo}
+            </div>
+          )}
+
           <form className="space-y-6" onSubmit={handleResetPassword}>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
