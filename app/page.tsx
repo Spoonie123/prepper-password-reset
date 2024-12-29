@@ -1,94 +1,40 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import React, { useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
 
-function ResetPassword() {
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null)
+export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const [debugInfo, setDebugInfo] = useState<string>('')
-
-  useEffect(() => {
-    const initializeSupabase = async () => {
-      try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-        if (!supabaseUrl || !supabaseAnonKey) {
-          throw new Error('Supabase credentials are not set')
-        }
-
-        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
-        setSupabase(supabaseClient)
-
-        // Get the complete URL including hash and search params
-        const fullUrl = window.location.href
-        setDebugInfo(`Full URL: ${fullUrl}`)
-
-        // Try to get token from hash fragment first
-        let access_token: string | null = null
-        const hash = window.location.hash
-        if (hash) {
-          const hashParams = new URLSearchParams(hash.substring(1))
-          access_token = hashParams.get('access_token')
-          setDebugInfo(prev => `${prev}\nFound token in hash: ${access_token}`)
-        }
-
-        // If no token in hash, try query parameters
-        if (!access_token) {
-          const queryParams = new URLSearchParams(window.location.search)
-          access_token = queryParams.get('token')
-          setDebugInfo(prev => `${prev}\nFound token in query: ${access_token}`)
-        }
-
-        if (access_token) {
-          // Set the session with the access token
-          const { data: { session }, error: sessionError } = await supabaseClient.auth.setSession({
-            access_token,
-            refresh_token: access_token
-          })
-
-          if (sessionError) throw sessionError
-          if (!session) throw new Error('No session established')
-
-          setDebugInfo(prev => `${prev}\nSession established successfully`)
-        } else {
-          throw new Error('No token found in URL')
-        }
-
-      } catch (error) {
-        console.error('Error in password reset flow:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize password reset'
-        setError(errorMessage)
-        setDebugInfo(prev => `${prev}\nError: ${errorMessage}`)
-      }
-    }
-
-    initializeSupabase()
-  }, [])
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setMessage('')
     setError('')
-
-    if (!supabase) {
-      setError('Supabase client not initialized')
-      return
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords don't match")
-      return
-    }
+    setIsLoading(true)
 
     try {
-      const { error } = await supabase.auth.updateUser({ password })
-      
-      if (error) throw error
+      if (password !== confirmPassword) {
+        throw new Error("Passwords don't match")
+      }
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Missing Supabase credentials')
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password
+      })
+
+      if (updateError) throw updateError
 
       setMessage('Password updated successfully')
       // Redirect to your app's login page after successful password reset
@@ -98,6 +44,8 @@ function ResetPassword() {
     } catch (error) {
       console.error('Password reset error:', error)
       setError(error instanceof Error ? error.message : 'An unexpected error occurred')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -111,12 +59,6 @@ function ResetPassword() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border-2 border-yellow-400">
-          {debugInfo && (
-            <div className="mb-4 p-4 bg-gray-100 rounded text-xs font-mono whitespace-pre-wrap">
-              {debugInfo}
-            </div>
-          )}
-
           <form className="space-y-6" onSubmit={handleResetPassword}>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -155,9 +97,10 @@ function ResetPassword() {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400"
+                disabled={isLoading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 disabled:opacity-50"
               >
-                Reset Password
+                {isLoading ? 'Updating...' : 'Reset Password'}
               </button>
             </div>
           </form>
@@ -178,5 +121,3 @@ function ResetPassword() {
     </div>
   )
 }
-
-export default ResetPassword
