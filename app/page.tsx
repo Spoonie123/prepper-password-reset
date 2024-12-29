@@ -33,7 +33,7 @@ function ResetPassword() {
             // Set session with just the access token
             const { error } = await supabaseClient.auth.setSession({
               access_token,
-              refresh_token: null
+              refresh_token: access_token // Use access_token as refresh_token instead of null
             })
             
             if (error) {
