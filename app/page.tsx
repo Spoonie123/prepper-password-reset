@@ -34,7 +34,7 @@ export default function ResetPassword() {
 
         if (type === 'recovery' && token) {
           try {
-            const { data, error } = await supabaseClient.auth.verifyOtp({
+            const { error } = await supabaseClient.auth.verifyOtp({
               token,
               type: 'recovery',
               email: '' // Email is required but will be extracted from the token
