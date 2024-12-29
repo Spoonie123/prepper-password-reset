@@ -5,8 +5,6 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 function ResetPassword() {
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null)
-  const [isAuthReady, setIsAuthReady] = useState(false)
-  const [initError, setInitError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [message, setMessage] = useState('')
@@ -46,11 +44,12 @@ function ResetPassword() {
           }
         }
 
-        setIsAuthReady(true)
+        // Removed setIsAuthReady(true)
+
       } catch (error) {
         console.error('Error initializing Supabase client:', error)
-        setInitError(error instanceof Error ? error.message : 'Failed to initialize Supabase client')
-        setIsAuthReady(true) // Set auth ready even on error to show error state
+        // Removed setInitError(error instanceof Error ? error.message : 'Failed to initialize Supabase client')
+        // Removed setIsAuthReady(true)
       }
     }
 
