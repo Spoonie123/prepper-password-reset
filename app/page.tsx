@@ -24,34 +24,39 @@ function ResetPassword() {
         const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
         setSupabase(supabaseClient)
 
-        // Get the complete URL including hash
+        // Get the complete URL including hash and search params
         const fullUrl = window.location.href
         setDebugInfo(`Full URL: ${fullUrl}`)
 
-        // Check if we have a hash fragment with access_token
+        // Try to get token from hash fragment first
+        let access_token: string | null = null
         const hash = window.location.hash
         if (hash) {
-          const params = new URLSearchParams(hash.substring(1))
-          const access_token = params.get('access_token')
-          
-          setDebugInfo(prev => `${prev}\nAccess Token: ${access_token}`)
+          const hashParams = new URLSearchParams(hash.substring(1))
+          access_token = hashParams.get('access_token')
+          setDebugInfo(prev => `${prev}\nFound token in hash: ${access_token}`)
+        }
 
-          if (access_token) {
-            // Set the session with the access token
-            const { data: { session }, error: sessionError } = await supabaseClient.auth.setSession({
-              access_token,
-              refresh_token: access_token
-            })
+        // If no token in hash, try query parameters
+        if (!access_token) {
+          const queryParams = new URLSearchParams(window.location.search)
+          access_token = queryParams.get('token')
+          setDebugInfo(prev => `${prev}\nFound token in query: ${access_token}`)
+        }
 
-            if (sessionError) throw sessionError
-            if (!session) throw new Error('No session established')
+        if (access_token) {
+          // Set the session with the access token
+          const { data: { session }, error: sessionError } = await supabaseClient.auth.setSession({
+            access_token,
+            refresh_token: access_token
+          })
 
-            setDebugInfo(prev => `${prev}\nSession established successfully`)
-          } else {
-            throw new Error('No access token found in URL')
-          }
+          if (sessionError) throw sessionError
+          if (!session) throw new Error('No session established')
+
+          setDebugInfo(prev => `${prev}\nSession established successfully`)
         } else {
-          throw new Error('No hash fragment in URL')
+          throw new Error('No token found in URL')
         }
 
       } catch (error) {
