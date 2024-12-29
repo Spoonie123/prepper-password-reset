@@ -24,36 +24,39 @@ function ResetPassword() {
         const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
         setSupabase(supabaseClient)
 
-        // Get the hash fragment from the URL
-        const hash = window.location.hash
-        setDebugInfo(`URL Hash: ${hash}`) // Debug info
+        // Get the complete URL including hash
+        const fullUrl = window.location.href
+        setDebugInfo(`Full URL: ${fullUrl}`)
 
+        // Check if we have a hash fragment with access_token
+        const hash = window.location.hash
         if (hash) {
           const params = new URLSearchParams(hash.substring(1))
           const access_token = params.get('access_token')
-          const type = params.get('type')
+          
+          setDebugInfo(prev => `${prev}\nAccess Token: ${access_token}`)
 
-          setDebugInfo(prev => `${prev}\nAccess Token: ${access_token}\nType: ${type}`) // Debug info
+          if (access_token) {
+            // Set the session with the access token
+            const { data: { session }, error: sessionError } = await supabaseClient.auth.setSession({
+              access_token,
+              refresh_token: access_token
+            })
 
-          if (!access_token) {
-            throw new Error('No access token provided in URL')
+            if (sessionError) throw sessionError
+            if (!session) throw new Error('No session established')
+
+            setDebugInfo(prev => `${prev}\nSession established successfully`)
+          } else {
+            throw new Error('No access token found in URL')
           }
-
-          // Set session with the access token
-          const { error: authError } = await supabaseClient.auth.getUser(access_token)
-          if (authError) {
-            throw authError
-          }
-
-          setDebugInfo(prev => `${prev}\nUser authenticated successfully`)
-          setDebugInfo(prev => `${prev}\nSession established successfully`)
         } else {
           throw new Error('No hash fragment in URL')
         }
 
       } catch (error) {
-        console.error('Error initializing Supabase client:', error)
-        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize Supabase client'
+        console.error('Error in password reset flow:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize password reset'
         setError(errorMessage)
         setDebugInfo(prev => `${prev}\nError: ${errorMessage}`)
       }
@@ -78,13 +81,8 @@ function ResetPassword() {
     }
 
     try {
-      // Verify session before attempting password update
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !session) {
-        throw new Error('No valid session found. Please try resetting your password again.')
-      }
-
       const { error } = await supabase.auth.updateUser({ password })
+      
       if (error) throw error
 
       setMessage('Password updated successfully')
