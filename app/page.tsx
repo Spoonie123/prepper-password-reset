@@ -5,6 +5,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 function ResetPassword() {
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null)
+  const [isAuthReady, setIsAuthReady] = useState(false)
   const [initError, setInitError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -12,35 +13,41 @@ function ResetPassword() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const initializeSupabase = async () => {
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error('Supabase credentials are not set')
-      }
-
-      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
-      setSupabase(supabaseClient)
-
-      // Get the hash fragment from the URL
-      const hash = window.location.hash
-      if (hash) {
-        const params = new URLSearchParams(hash.substring(1))
-        const access_token = params.get('access_token')
-        const refresh_token = params.get('refresh_token')
-
-        if (access_token && refresh_token) {
-          supabaseClient.auth.setSession({
-            access_token,
-            refresh_token,
-          })
+        if (!supabaseUrl || !supabaseAnonKey) {
+          throw new Error('Supabase credentials are not set')
         }
+
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+        setSupabase(supabaseClient)
+
+        // Get the hash fragment from the URL
+        const hash = window.location.hash
+        if (hash) {
+          const params = new URLSearchParams(hash.substring(1))
+          const access_token = params.get('access_token')
+          const refresh_token = params.get('refresh_token')
+
+          if (access_token && refresh_token) {
+            await supabaseClient.auth.setSession({
+              access_token,
+              refresh_token,
+            })
+          }
+        }
+
+        setIsAuthReady(true)
+      } catch (error) {
+        console.error('Error initializing Supabase client:', error)
+        setInitError(error instanceof Error ? error.message : 'Failed to initialize Supabase client')
       }
-    } catch (error) {
-      console.error('Error initializing Supabase client:', error)
-      setInitError(error instanceof Error ? error.message : 'Failed to initialize Supabase client')
     }
+
+    initializeSupabase()
   }, [])
 
   if (initError) {
@@ -54,7 +61,7 @@ function ResetPassword() {
     )
   }
 
-  if (!supabase) {
+  if (!supabase || !isAuthReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="bg-white p-8 rounded-lg shadow-md">
@@ -88,7 +95,7 @@ function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-200 flex flex-col justify-center py-12 sm:px-6 lg:px-8 border-2 border-yellow-400">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
           Reset your password
@@ -96,7 +103,7 @@ function ResetPassword() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border-2 border-yellow-400">
           <form className="space-y-6" onSubmit={handleResetPassword}>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -135,7 +142,7 @@ function ResetPassword() {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400"
               >
                 Reset Password
               </button>
