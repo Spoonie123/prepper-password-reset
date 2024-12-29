@@ -25,40 +25,34 @@ export default function ResetPassword() {
         const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
         setSupabase(supabaseClient)
 
-        // Get the hash fragment from the URL
-        const hash = window.location.hash.substring(1)
-        const params = new URLSearchParams(hash)
-        const accessToken = params.get('access_token')
-        const refreshToken = params.get('refresh_token')
+        // Get recovery token from URL query parameters
+        const params = new URLSearchParams(window.location.search)
+        const token = params.get('token')
+        const type = params.get('type')
 
-        setDebugInfo(`Access Token: ${accessToken ? 'Present' : 'Missing'}, Refresh Token: ${refreshToken ? 'Present' : 'Missing'}`)
+        setDebugInfo(`Type: ${type}, Token: ${token}`)
 
-        if (accessToken && refreshToken) {
-          const { error } = await supabaseClient.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          })
+        if (type === 'recovery' && token) {
+          try {
+            const { data, error } = await supabaseClient.auth.verifyOtp({
+              token,
+              type: 'recovery',
+              email: '' // Email is required but will be extracted from the token
+            })
 
-          if (error) {
-            throw error
+            if (error) throw error
+            setDebugInfo(prev => `${prev}\nOTP verification successful`)
+
+          } catch (verifyError) {
+            throw new Error(`OTP verification failed: ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`)
           }
-
-          setDebugInfo(prev => `${prev}\nSession set successfully`)
         } else {
-          setDebugInfo(prev => `${prev}\nNo tokens found in URL`)
-        }
-
-        // Verify the session
-        const { data: { session } } = await supabaseClient.auth.getSession()
-        if (session) {
-          setDebugInfo(prev => `${prev}\nValid session found`)
-        } else {
-          setDebugInfo(prev => `${prev}\nNo valid session found`)
+          throw new Error('Invalid recovery parameters')
         }
 
       } catch (error) {
-        console.error('Initialization error:', error)
-        setError(error instanceof Error ? error.message : 'An unexpected error occurred during initialization')
+        console.error('Error:', error)
+        setError(error instanceof Error ? error.message : 'An unexpected error occurred')
         setDebugInfo(prev => `${prev}\nError: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
     }
